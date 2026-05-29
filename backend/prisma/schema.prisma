@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model cita {
+  id_cita             Int            @id @default(autoincrement())
+  id_paciente         Int
+  id_doctor           Int
+  id_disponibilidad   Int            @unique(map: "id_disponibilidad")
+  motivo              String?        @db.VarChar(255)
+  estado              cita_estado?   @default(programada)
+  fecha_actualizacion DateTime?      @default(now()) @db.DateTime(0)
+  paciente            paciente       @relation(fields: [id_paciente], references: [id_paciente], onDelete: Cascade, onUpdate: NoAction, map: "cita_ibfk_1")
+  doctor              doctor         @relation(fields: [id_doctor], references: [id_doctor], onDelete: Cascade, onUpdate: NoAction, map: "cita_ibfk_2")
+  disponibilidad      disponibilidad @relation(fields: [id_disponibilidad], references: [id_disponibilidad], onDelete: NoAction, onUpdate: NoAction, map: "cita_ibfk_3")
+  pago                pago[]
+
+  @@index([id_doctor], map: "id_doctor")
+  @@index([id_paciente], map: "id_paciente")
+}
+
+model clinica {
+  id_clinica     Int              @id
+  id_tenant      Int
+  nombre         String           @db.VarChar(150)
+  direccion      String?          @db.VarChar(255)
+  correo         String?          @db.VarChar(100)
+  telefono       String?          @db.VarChar(50)
+  latitud        Decimal?         @db.Decimal(10, 8)
+  longitud       Decimal?         @db.Decimal(11, 8)
+  tenant         tenant           @relation(fields: [id_tenant], references: [id_tenant], onDelete: Cascade, onUpdate: NoAction, map: "clinica_ibfk_1")
+  doctor         doctor[]
+  horarioclinica horarioclinica[]
+
+  @@index([id_tenant], map: "id_tenant")
+}
+
+model disponibilidad {
+  id_disponibilidad Int                    @id @default(autoincrement())
+  id_doctor         Int
+  fecha             DateTime               @db.Date
+  hora_inicio       DateTime               @db.Time(0)
+  hora_fin          DateTime               @db.Time(0)
+  estado            disponibilidad_estado? @default(disponible)
+  cita              cita?
+  doctor            doctor                 @relation(fields: [id_doctor], references: [id_doctor], onDelete: Cascade, onUpdate: NoAction, map: "disponibilidad_ibfk_1")
+
+  @@index([id_doctor], map: "id_doctor")
+}
+
+model doctor {
+  id_doctor       Int                   @id @default(autoincrement())
+  id_usuario      Int                   @unique(map: "id_usuario")
+  id_especialidad Int
+  id_clinica      Int
+  numero_licencia String                @db.VarChar(50)
+  estado_doctor   doctor_estado_doctor? @default(activo)
+  cita            cita[]
+  disponibilidad  disponibilidad[]
+  usuario         usuario               @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: NoAction, map: "doctor_ibfk_1")
+  especialidad    especialidad          @relation(fields: [id_especialidad], references: [id_especialidad], onDelete: NoAction, onUpdate: NoAction, map: "doctor_ibfk_2")
+  clinica         clinica               @relation(fields: [id_clinica], references: [id_clinica], onDelete: NoAction, onUpdate: NoAction, map: "doctor_ibfk_3")
+
+  @@index([id_clinica], map: "id_clinica")
+  @@index([id_especialidad], map: "id_especialidad")
+}
+
+model especialidad {
+  id_especialidad Int      @id @default(autoincrement())
+  id_tenant       Int
+  nombre          String   @db.VarChar(100)
+  doctor          doctor[]
+  tenant          tenant   @relation(fields: [id_tenant], references: [id_tenant], onDelete: Cascade, onUpdate: NoAction, map: "especialidad_ibfk_1")
+
+  @@unique([id_tenant, nombre], map: "id_tenant")
+}
+
+model horarioclinica {
+  id_horario    Int                       @id @default(autoincrement())
+  id_clinica    Int
+  dia_semana    horarioclinica_dia_semana
+  hora_apertura DateTime                  @db.Time(0)
+  hora_cierre   DateTime                  @db.Time(0)
+  clinica       clinica                   @relation(fields: [id_clinica], references: [id_clinica], onDelete: Cascade, onUpdate: NoAction, map: "horarioclinica_ibfk_1")
+
+  @@index([id_clinica], map: "id_clinica")
+}
+
+model paciente {
+  id_paciente      Int       @id @default(autoincrement())
+  id_usuario       Int       @unique(map: "id_usuario")
+  rfc              String    @db.VarChar(13)
+  penalizado_hasta DateTime? @db.Date
+  cita             cita[]
+  usuario          usuario   @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: NoAction, map: "paciente_ibfk_1")
+}
+
+model pago {
+  id_pago        Int               @id @default(autoincrement())
+  id_cita        Int
+  monto          Decimal           @db.Decimal(10, 2)
+  estado_pago    pago_estado_pago? @default(pendiente)
+  metodo_pago    String?           @db.VarChar(50)
+  transaccion_id String?           @db.VarChar(100)
+  fecha_pago     DateTime?         @default(now()) @db.DateTime(0)
+  cita           cita              @relation(fields: [id_cita], references: [id_cita], onDelete: Cascade, onUpdate: NoAction, map: "pago_ibfk_1")
+
+  @@index([id_cita], map: "id_cita")
+}
+
+model tenant {
+  id_tenant        Int                      @id @default(autoincrement())
+  nombre_empresa   String                   @db.VarChar(150)
+  subdominio       String                   @unique(map: "subdominio") @db.VarChar(100)
+  plan_suscripcion tenant_plan_suscripcion? @default(basico)
+  fecha_registro   DateTime?                @default(now()) @db.DateTime(0)
+  activo           Boolean?                 @default(true)
+  clinica          clinica[]
+  especialidad     especialidad[]
+  usuario          usuario[]
+}
+
+model usuario {
+  id_usuario   Int                  @id @default(autoincrement())
+  id_tenant    Int
+  nombre       String               @db.VarChar(100)
+  apellido     String               @db.VarChar(100)
+  correo       String               @db.VarChar(150)
+  password     String               @db.VarChar(255)
+  tipo_usuario usuario_tipo_usuario
+  doctor       doctor?
+  paciente     paciente?
+  tenant       tenant               @relation(fields: [id_tenant], references: [id_tenant], onDelete: Cascade, onUpdate: NoAction, map: "usuario_ibfk_1")
+
+  @@unique([id_tenant, correo], map: "id_tenant")
+}
+
+enum horarioclinica_dia_semana {
+  Lunes
+  Martes
+  Miercoles
+  Jueves
+  Viernes
+  Sabado
+  Domingo
+}
+
+enum pago_estado_pago {
+  pendiente
+  pagado
+  fallido
+}
+
+enum tenant_plan_suscripcion {
+  basico
+  pro
+  enterprise
+}
+
+enum cita_estado {
+  programada
+  completada
+  cancelada
+}
+
+enum disponibilidad_estado {
+  disponible
+  ocupado
+}
+
+enum doctor_estado_doctor {
+  activo
+  vacaciones
+  permiso
+  inactivo
+}
+
+enum usuario_tipo_usuario {
+  paciente
+  doctor
+  admin
+}

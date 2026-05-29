@@ -1,0 +1,39 @@
+
+services:
+  # ==========================================
+  # CONTENEDOR 1: LA BASE DE DATOS (MARIADB)
+  # ==========================================
+  db:
+    image: mysql:8.0
+    container_name: citas_salud_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: citas_salud
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  # ==========================================
+  # CONTENEDOR 2: TU API EN NODE.JS
+  # ==========================================
+  backend:
+    build: ./backend # Le decimos que busque el Dockerfile en la carpeta backend
+    container_name: citas_salud_backend
+    restart: always
+    ports:
+      # Mapeamos el puerto de tu API
+      - "3000:3000"
+    environment:
+      # ¡OJO AQUÍ! Cambiamos "localhost" por "db" para que apunte al contenedor de arriba
+      DATABASE_URL: "mysql://root:root@db:3306/citas_salud"
+      JWT_SECRET: "super_secreto_citas_salud_2026"
+      PORT: 3000
+    depends_on:
+      # El backend no arranca hasta que la base de datos esté lista
+      - db
+
+# Declaramos el volumen persistente
+volumes:
+  mariadb_data:
